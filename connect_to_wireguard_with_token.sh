@@ -151,11 +151,26 @@ if [[ $PIA_DNS == "true" ]]; then
 fi
 echo -n "Trying to write ${PIA_CONF_PATH}..."
 mkdir -p "$(dirname "$PIA_CONF_PATH")"
+# Get default gateway for LXC static route
+DEFAULT_GATEWAY=$(ip route show default | awk 'NR==1{print $3}')
 echo "
 [Interface]
-Address = $(echo "$wireguard_json" | jq -r '.peer_ip')
+Address = $(echo "$wireguard_json" | jq -r '.peer_ip')/32
 PrivateKey = $privKey
 $dnsSettingForVPN
+
+# LXC fix 1: static host route for WireGuard endpoint -> prevents routing loop
+PreUp = ip route add ${WG_SERVER_IP}/32 via ${DEFAULT_GATEWAY} dev eth0
+PostDown = ip route del ${WG_SERVER_IP}/32 dev eth0 2>/dev/null || true
+
+# LXC fix 2: fix DNS (resolvconf symlink absent)
+PreUp = echo nameserver 10.0.0.242 > /etc/resolv.conf
+PostDown = echo -e 'nameserver 192.168.2.254\nsearch local' > /etc/resolv.conf
+
+# LXC fix 3: keep SSH responses on eth0 to prevent lockout
+PreUp = ip rule add sport 22 table main
+PostDown = ip rule del sport 22 table main 2>/dev/null || true
+
 [Peer]
 PersistentKeepalive = 25
 PublicKey = $(echo "$wireguard_json" | jq -r '.server_key')
