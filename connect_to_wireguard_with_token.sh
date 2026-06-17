@@ -199,12 +199,12 @@ if [[ $PIA_CONNECT == "true" ]]; then
   "
 
   # This section will stop the script if PIA_PF is not set to "true".
-  if [[ $PIA_PF != "true" ]]; then
-    echo "If you want to also enable port forwarding, you can start the script:"
-    echo -e "$ ${green}PIA_TOKEN=$PIA_TOKEN" \
-      "PF_GATEWAY=$WG_SERVER_IP" \
-      "PF_HOSTNAME=$WG_HOSTNAME" \
-      "./port_forwarding.sh${nc}"
+if [[ $PIA_PF != "true" ]]; then
+     echo "If you want to also enable port forwarding, you can start the script:"
+     echo -e "$ ${green}PIA_TOKEN=$PIA_TOKEN" \
+       "PF_GATEWAY=${PF_GATEWAY:-$WG_SERVER_IP}" \
+       "PF_HOSTNAME=${PF_HOSTNAME:-$WG_HOSTNAME}" \
+       "./port_forwarding.sh${nc}"
     echo
     echo "The location used must be port forwarding enabled, or this will fail."
     echo "Calling the ./get_region script with PIA_PF=true will provide a filtered list."
@@ -221,14 +221,14 @@ if [[ $PIA_CONNECT == "true" ]]; then
   echo
   echo
 
-  echo -e "Starting procedure to enable port forwarding by running the following command:
-  $ ${green}PIA_TOKEN=$PIA_TOKEN \\
-    PF_GATEWAY=$WG_SERVER_IP \\
-    PF_HOSTNAME=$WG_HOSTNAME \\
-    ./port_forwarding.sh${nc}"
+echo -e "Starting procedure to enable port forwarding by running the following command:
+   $ ${green}PIA_TOKEN=$PIA_TOKEN \\
+     PF_GATEWAY=${PF_GATEWAY:-$WG_SERVER_IP} \\
+     PF_HOSTNAME=${PF_HOSTNAME:-$WG_HOSTNAME} \\
+     ./port_forwarding.sh${nc}"
 
-  PIA_TOKEN=$PIA_TOKEN \
-    PF_GATEWAY=$WG_SERVER_IP \
-    PF_HOSTNAME=$WG_HOSTNAME \
-    ./port_forwarding.sh
+PIA_TOKEN=$PIA_TOKEN \
+     PF_GATEWAY=${PF_GATEWAY:-$WG_SERVER_IP} \
+     PF_HOSTNAME=${PF_HOSTNAME:-$WG_HOSTNAME} \
+     ./port_forwarding.sh
 fi

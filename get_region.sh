@@ -236,12 +236,16 @@ if [[ $VPN_PROTOCOL == "wireguard" ]]; then
   echo "The ./get_region.sh script got started with"
   echo -e "${green}VPN_PROTOCOL=wireguard${nc}, so we will automatically connect to WireGuard,"
   echo "by running this command:"
-  echo -e "$ ${green}PIA_TOKEN=$PIA_TOKEN \\"
-  echo "WG_SERVER_IP=$bestServer_WG_IP WG_HOSTNAME=$bestServer_WG_hostname \\"
-  echo -e "PIA_PF=$PIA_PF ./connect_to_wireguard_with_token.sh${nc}"
+echo -e "$ ${green}PIA_TOKEN=$PIA_TOKEN \\"
+   echo "WG_SERVER_IP=$bestServer_WG_IP WG_HOSTNAME=$bestServer_WG_hostname \\"
+   echo -e "PIA_PF=$PIA_PF \\"
+   echo -e "PF_GATEWAY=$bestServer_meta_IP PF_HOSTNAME=$bestServer_meta_hostname \\"
+   echo -e "./connect_to_wireguard_with_token.sh${nc}"
   echo
-  PIA_PF=$PIA_PF PIA_TOKEN=$PIA_TOKEN WG_SERVER_IP=$bestServer_WG_IP \
-    WG_HOSTNAME=$bestServer_WG_hostname ./connect_to_wireguard_with_token.sh
+PIA_PF=$PIA_PF PIA_TOKEN=$PIA_TOKEN WG_SERVER_IP=$bestServer_WG_IP \
+     WG_HOSTNAME=$bestServer_WG_hostname \
+     PF_GATEWAY=$bestServer_meta_IP PF_HOSTNAME=$bestServer_meta_hostname \
+     ./connect_to_wireguard_with_token.sh
   rm -f /opt/piavpn-manual/latencyList
   exit 0
 fi
