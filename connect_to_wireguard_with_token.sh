@@ -131,7 +131,13 @@ if [[ $PIA_CONNECT == "true" ]]; then
   # these scripts. Feel free to fork the project and test it out.
   echo
   echo "Trying to disable a PIA WG connection in case it exists..."
-  wg-quick down pia && echo -e "${green}\nPIA WG connection disabled!${nc}"
+  wg-quick down pia 2>/dev/null
+  # Flush nftables kill switch when disconnecting
+  if nft list ruleset 2>/dev/null | grep -q "pia"; then
+    echo "Flushing kill switch..."
+    nft flush ruleset
+  fi
+  echo -e "${green}PIA WG connection disabled!${nc}"
   echo
 fi
 
@@ -179,7 +185,6 @@ Endpoint = ${WG_SERVER_IP}:$(echo "$wireguard_json" | jq -r '.server_port')
 " > ${PIA_CONF_PATH} || exit 1
 echo -e "${green}OK!${nc}"
 
-
 if [[ $PIA_CONNECT == "true" ]]; then
   # Start the WireGuard interface.
   # If something failed, stop this script.
@@ -189,31 +194,38 @@ if [[ $PIA_CONNECT == "true" ]]; then
   echo "Trying to create the wireguard interface..."
   wg-quick up pia || exit 1
   echo
-  echo -e "${green}The WireGuard interface got created.${nc}
+  echo -e "${green}The WireGuard interface got created.${nc}"
 
-  At this point, internet should work via VPN.
+  # Enable the kill switch after VPN is up
+  if [[ -f /etc/nftables-pia.conf ]]; then
+    echo "Enabling kill switch..."
+    nft -f /etc/nftables-pia.conf
+  fi
 
+  echo
+  echo "At this point, internet should work via VPN.
   To disconnect the VPN, run:
 
   --> ${green}wg-quick down pia${nc} <--
   "
 
   # This section will stop the script if PIA_PF is not set to "true".
-if [[ $PIA_PF != "true" ]]; then
-     echo "If you want to also enable port forwarding, you can start the script:"
-     echo -e "$ ${green}PIA_TOKEN=$PIA_TOKEN" \
-       "PF_GATEWAY=${PF_GATEWAY:-$WG_SERVER_IP}" \
-       "PF_HOSTNAME=${PF_HOSTNAME:-$WG_HOSTNAME}" \
-       "./port_forwarding.sh${nc}"
+  if [[ $PIA_PF != "true" ]]; then
+    echo "If you want to also enable port forwarding, you can start the script:"
+    echo -e "$ ${green}PIA_TOKEN=$PIA_TOKEN" \
+      "PF_GATEWAY=${PF_GATEWAY:-$WG_SERVER_IP}" \
+      "PF_HOSTNAME=${PF_HOSTNAME:-$WG_HOSTNAME}" \
+      "./port_forwarding.sh${nc}"
     echo
     echo "The location used must be port forwarding enabled, or this will fail."
     echo "Calling the ./get_region script with PIA_PF=true will provide a filtered list."
     exit 1
   fi
 
-  echo -ne "This script got started with ${green}PIA_PF=true${nc}.
+  echo -ne "This script got started with ${green}PIA_PF=true${nc}."
+  echo
 
-  Starting port forwarding in "
+  echo -e "Starting port forwarding in "
   for i in {5..1}; do
     echo -n "$i..."
     sleep 1
@@ -221,14 +233,14 @@ if [[ $PIA_PF != "true" ]]; then
   echo
   echo
 
-echo -e "Starting procedure to enable port forwarding by running the following command:
-   $ ${green}PIA_TOKEN=$PIA_TOKEN \\
-     PF_GATEWAY=${PF_GATEWAY:-$WG_SERVER_IP} \\
-     PF_HOSTNAME=${PF_HOSTNAME:-$WG_HOSTNAME} \\
-     ./port_forwarding.sh${nc}"
+echo -e "Starting procedure to enable port forwarding by running the following command:"
+echo "PIA_TOKEN=$PIA_TOKEN" \
+  "PF_GATEWAY=${PF_GATEWAY:-$WG_SERVER_IP}" \
+  "PF_HOSTNAME=${PF_HOSTNAME:-$WG_HOSTNAME}" \
+  "./port_forwarding.sh"
 
 PIA_TOKEN=$PIA_TOKEN \
-     PF_GATEWAY=${PF_GATEWAY:-$WG_SERVER_IP} \
-     PF_HOSTNAME=${PF_HOSTNAME:-$WG_HOSTNAME} \
-     ./port_forwarding.sh
+  PF_GATEWAY=${PF_GATEWAY:-$WG_SERVER_IP} \
+  PF_HOSTNAME=${PF_HOSTNAME:-$WG_HOSTNAME} \
+  ./port_forwarding.sh
 fi
