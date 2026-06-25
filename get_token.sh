@@ -69,6 +69,16 @@ fi
 
 echo -n "Checking login credentials..."
 
+# Wait for network connectivity before attempting authentication
+for i in {1..10}; do
+    if curl -s --connect-timeout 2 https://www.privateinternetaccess.com/api/client/v2/token >/dev/null 2>&1; then
+        break
+    fi
+    
+    echo -e "${red}Attempt $i failed. Retrying in 2 seconds...${nc}"
+    sleep 2
+done
+
 generateTokenResponse=$(curl -s --location --request POST \
   'https://www.privateinternetaccess.com/api/client/v2/token' \
   --form "username=$PIA_USER" \
