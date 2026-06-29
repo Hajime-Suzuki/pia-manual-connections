@@ -44,6 +44,15 @@ table inet pia_killswitch {
         tcp dport 5173 accept
         tcp dport 22 accept
     }
+    chain forward {
+        type filter hook forward priority 0; policy drop;
+        oif "lo" accept
+        iif "lo" accept
+        ct state established,related accept
+        oifname "pia*" accept
+        iifname "docker0" oifname "pia*" accept
+        iifname "br-*" oifname "pia*" accept
+    }
 }
 EOF
 
