@@ -146,9 +146,12 @@ while true; do
       echo -e "${red}The API did not return OK when trying to bind port... Exiting.${nc}"
       exit 1
     fi
+    script_dir="$(cd "$(dirname "$0")" && pwd)"
+    echo "$port" > "$script_dir/forwarded_port"
     echo -e Forwarded port'\t'"${green}$port${nc}"
     echo -e Refreshed on'\t'"${green}$(date)${nc}"
     echo -e Expires on'\t'"${red}$(date --date="$expires_at")${nc}"
+    echo -e Port file'\t'"${green}$script_dir/forwarded_port${nc}"
     echo -e "\n${green}This script will need to remain active to use port forwarding, and will refresh every 15 minutes.${nc}\n"
 
     # sleep 15 minutes
