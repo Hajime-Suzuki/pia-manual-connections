@@ -4,6 +4,7 @@
 # This creates a strict killswitch that only allows traffic through
 # the VPN tunnel (pia* interface), established connections, loopback,
 # SSH (port 22), and a local automation app (port 5173).
+# Forward policy blocks all non-VPN routed traffic.
 #
 # DNS traffic is NOT explicitly allowed — it must go through the tunnel.
 #
@@ -46,12 +47,8 @@ table inet pia_killswitch {
     }
     chain forward {
         type filter hook forward priority 0; policy drop;
-        oif "lo" accept
-        iif "lo" accept
         ct state established,related accept
         oifname "pia*" accept
-        iifname "docker0" oifname "pia*" accept
-        iifname "br-*" oifname "pia*" accept
     }
 }
 EOF
