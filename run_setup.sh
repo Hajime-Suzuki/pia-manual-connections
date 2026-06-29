@@ -46,6 +46,13 @@ fi
 # Erase previous authentication token if present
 rm -f /opt/piavpn-manual/token /opt/piavpn-manual/latencyList
 
+# Generate and enable killswitch immediately to protect the system
+# before any VPN operations (especially fresh restart with no killswitch)
+echo "Generating kill switch config..."
+./generate_killswitch.sh
+echo "Enabling kill switch..."
+nft -f /etc/nftables-pia.conf
+
 # Retry login if no token is generated
 while :; do
     while :; do

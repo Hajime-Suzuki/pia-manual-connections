@@ -129,6 +129,18 @@ if [[ -z $VPN_PROTOCOL ]]; then
   VPN_PROTOCOL=no
 fi
 
+# Temporarily disable killswitch to allow network access
+# Temporarily disable killswitch to allow network access
+echo "Disabling kill switch..."
+nft delete table inet pia_killswitch 2>/dev/null || true
+
+# Ensure killswitch is re-applied on any exit path
+reapply_killswitch() {
+    echo "Re-enabling kill switch..."
+    nft -f /etc/nftables-pia.conf
+}
+trap reapply_killswitch EXIT
+
 # Get all region data
 all_region_data=$(curl -s "$serverlist_url" | head -1)
 

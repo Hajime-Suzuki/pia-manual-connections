@@ -67,6 +67,18 @@ if [[ -z $PIA_USER || -z $PIA_PASS ]]; then
   exit 1
 fi
 
+# Temporarily disable killswitch to allow network access
+# Temporarily disable killswitch to allow network access
+echo "Disabling kill switch..."
+nft delete table inet pia_killswitch 2>/dev/null || true
+
+# Ensure killswitch is re-applied on any exit path
+reapply_killswitch() {
+    echo "Re-enabling kill switch..."
+    nft -f /etc/nftables-pia.conf
+}
+trap reapply_killswitch EXIT
+
 echo -n "Checking login credentials..."
 
 # Wait for network connectivity before attempting authentication

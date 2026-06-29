@@ -93,6 +93,18 @@ export privKey
 pubKey=$( echo "$privKey" | wg pubkey)
 export pubKey
 
+# Temporarily disable killswitch to allow API access
+# Temporarily disable killswitch to allow API access
+echo "Disabling kill switch..."
+nft delete table inet pia_killswitch 2>/dev/null || true
+
+# Ensure killswitch is re-applied on any exit path
+reapply_killswitch() {
+    echo "Re-enabling kill switch..."
+    nft -f /etc/nftables-pia.conf
+}
+trap reapply_killswitch EXIT
+
 # Authenticate via the PIA WireGuard RESTful API.
 # This will return a JSON with data required for authentication.
 # The certificate is required to verify the identity of the VPN server.
@@ -132,10 +144,10 @@ if [[ $PIA_CONNECT == "true" ]]; then
   echo
   echo "Trying to disable a PIA WG connection in case it exists..."
   wg-quick down pia 2>/dev/null
-  # Flush nftables kill switch when disconnecting
-  if nft list ruleset 2>/dev/null | grep -q "pia"; then
-    echo "Flushing kill switch..."
-    nft flush ruleset
+  # Remove old killswitch table when disconnecting (safety net)
+  if nft list tables 2>/dev/null | grep -q "pia_killswitch"; then
+    echo "Removing old kill switch..."
+    nft delete table inet pia_killswitch 2>/dev/null || true
   fi
   echo -e "${green}PIA WG connection disabled!${nc}"
   echo
@@ -197,10 +209,8 @@ if [[ $PIA_CONNECT == "true" ]]; then
   echo -e "${green}The WireGuard interface got created.${nc}"
 
   # Enable the kill switch after VPN is up
-  if [[ -f /etc/nftables-pia.conf ]]; then
-    echo "Enabling kill switch..."
-    nft -f /etc/nftables-pia.conf
-  fi
+  echo "Enabling kill switch..."
+  nft -f /etc/nftables-pia.conf
 
   echo
   echo "At this point, internet should work via VPN.
