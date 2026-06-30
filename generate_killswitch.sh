@@ -5,6 +5,19 @@
 # the VPN tunnel (pia* interface), established connections, loopback,
 # SSH (port 22), and a local automation app (port 5173).
 # Forward policy blocks all non-VPN routed traffic.
+# Optionally sets up NAT masquerade for gateway forwarding.
+#
+# DNS traffic is NOT explicitly allowed — it must go through the tunnel.
+#
+# Usage:
+#   ./generate_killswitch.sh
+#
+# Environment variables:
+#   PIA_KILLSWITCH_DNS - DNS server for pre-connection resolution
+#                        (default: 192.168.2.254)
+#   PIA_KILLSWITCH_PATH - output path (default: /etc/nftables-pia.conf)
+#   PIA_KILLSWITCH_GATEWAY - set to "true" to add NAT masquerade for forwarded
+#                            traffic (needed when LXC routes other machines)
 #
 # DNS traffic is NOT explicitly allowed — it must go through the tunnel.
 #
@@ -20,6 +33,7 @@ set -euo pipefail
 
 : "${PIA_KILLSWITCH_DNS:=192.168.2.254}"
 : "${PIA_KILLSWITCH_PATH:=/etc/nftables-pia.conf}"
+: "${PIA_KILLSWITCH_GATEWAY:=false}"
 
 if (( EUID != 0 )); then
   echo "This script needs to be run as root. Try again with 'sudo $0'"
@@ -52,6 +66,18 @@ table inet pia_killswitch {
     }
 }
 EOF
+
+if [[ "$PIA_KILLSWITCH_GATEWAY" == "true" ]]; then
+  cat >> "$PIA_KILLSWITCH_PATH" <<'EOF'
+table inet pia_killswitch {
+    chain postrouting {
+        type nat hook postrouting priority 100; policy accept;
+        oifname "pia*" masquerade
+    }
+}
+EOF
+  echo "Gateway NAT masquerade enabled."
+fi
 
 echo "Killswitch generated at ${PIA_KILLSWITCH_PATH}"
 echo "DNS server configured: ${PIA_KILLSWITCH_DNS}"
