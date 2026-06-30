@@ -64,18 +64,17 @@ table inet pia_killswitch {
         ct state established,related accept
         oifname "pia*" accept
     }
+$(if [[ "$PIA_KILLSWITCH_GATEWAY" == "true" ]]; then
+echo "    chain postrouting {
+        type nat hook postrouting priority 100; policy accept;
+        oifname \"pia*\" masquerade
+    }"
+fi
+)
 }
 EOF
 
 if [[ "$PIA_KILLSWITCH_GATEWAY" == "true" ]]; then
-  cat >> "$PIA_KILLSWITCH_PATH" <<'EOF'
-table inet pia_killswitch {
-    chain postrouting {
-        type nat hook postrouting priority 100; policy accept;
-        oifname "pia*" masquerade
-    }
-}
-EOF
   echo "Gateway NAT masquerade enabled."
 fi
 

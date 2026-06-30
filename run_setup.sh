@@ -51,6 +51,7 @@ rm -f /opt/piavpn-manual/token /opt/piavpn-manual/latencyList
 echo "Generating kill switch config..."
 ./generate_killswitch.sh
 echo "Enabling kill switch..."
+nft delete table inet pia_killswitch 2>/dev/null || true
 nft -f /etc/nftables-pia.conf
 
 # Retry login if no token is generated

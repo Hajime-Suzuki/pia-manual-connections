@@ -152,6 +152,13 @@ while true; do
     echo -e Refreshed on'\t'"${green}$(date)${nc}"
     echo -e Expires on'\t'"${red}$(date --date="$expires_at")${nc}"
     echo -e Port file'\t'"${green}$script_dir/forwarded_port${nc}"
+
+    # Port is bound. Re-enable killswitch so traffic is locked to the VPN tunnel.
+    # Subsequent keepalive curls go through the pia interface and are allowed.
+    echo "Re-enabling kill switch..."
+    nft delete table inet pia_killswitch 2>/dev/null || true
+    nft -f /etc/nftables-pia.conf
+
     echo -e "\n${green}This script will need to remain active to use port forwarding, and will refresh every 15 minutes.${nc}\n"
 
     # sleep 15 minutes

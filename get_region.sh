@@ -137,6 +137,7 @@ nft delete table inet pia_killswitch 2>/dev/null || true
 # Ensure killswitch is re-applied on any exit path
 reapply_killswitch() {
     echo "Re-enabling kill switch..."
+    nft delete table inet pia_killswitch 2>/dev/null || true
     nft -f /etc/nftables-pia.conf
 }
 trap reapply_killswitch EXIT

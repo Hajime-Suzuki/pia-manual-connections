@@ -94,16 +94,16 @@ pubKey=$( echo "$privKey" | wg pubkey)
 export pubKey
 
 # Temporarily disable killswitch to allow API access
-# Temporarily disable killswitch to allow API access
 echo "Disabling kill switch..."
 nft delete table inet pia_killswitch 2>/dev/null || true
 
-# Ensure killswitch is re-applied on any exit path
-reapply_killswitch() {
+# Killswitch is re-applied later (after PF if enabled, or at end of script)
+# to avoid blocking API calls needed by port_forwarding.sh.
+enable_killswitch() {
     echo "Re-enabling kill switch..."
+    nft delete table inet pia_killswitch 2>/dev/null || true
     nft -f /etc/nftables-pia.conf
 }
-trap reapply_killswitch EXIT
 
 # Authenticate via the PIA WireGuard RESTful API.
 # This will return a JSON with data required for authentication.
@@ -209,8 +209,7 @@ if [[ $PIA_CONNECT == "true" ]]; then
   echo -e "${green}The WireGuard interface got created.${nc}"
 
   # Enable the kill switch after VPN is up
-  echo "Enabling kill switch..."
-  nft -f /etc/nftables-pia.conf
+  enable_killswitch
 
   echo
   echo "At this point, internet should work via VPN.
@@ -243,13 +242,18 @@ if [[ $PIA_CONNECT == "true" ]]; then
   echo
   echo
 
-echo -e "Starting procedure to enable port forwarding by running the following command:"
-echo "PIA_TOKEN=$PIA_TOKEN" \
-  "PF_GATEWAY=${PF_GATEWAY:-$WG_SERVER_IP}" \
-  "PF_HOSTNAME=${PF_HOSTNAME:-$WG_HOSTNAME}" \
-  "./port_forwarding.sh"
+  # port_forwarding.sh needs to reach PIA API initially (no killswitch).
+  # Once the port is bound, port_forwarding.sh re-enables the killswitch itself.
+  echo "Disabling kill switch for port forwarding API call..."
+  nft delete table inet pia_killswitch 2>/dev/null || true
 
-PIA_TOKEN=$PIA_TOKEN \
+  echo -e "Starting procedure to enable port forwarding by running the following command:"
+  echo "PIA_TOKEN=$PIA_TOKEN" \
+    "PF_GATEWAY=${PF_GATEWAY:-$WG_SERVER_IP}" \
+    "PF_HOSTNAME=${PF_HOSTNAME:-$WG_HOSTNAME}" \
+    "./port_forwarding.sh"
+
+  PIA_TOKEN=$PIA_TOKEN \
   PF_GATEWAY=${PF_GATEWAY:-$WG_SERVER_IP} \
   PF_HOSTNAME=${PF_HOSTNAME:-$WG_HOSTNAME} \
   ./port_forwarding.sh
