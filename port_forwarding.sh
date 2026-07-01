@@ -44,6 +44,7 @@ if [[ -z $PF_GATEWAY || -z $PIA_TOKEN || -z $PF_HOSTNAME ]]; then
   echo "as it will guide you through getting the best server and"
   echo "also a token. Detailed information can be found here:"
   echo "https://github.com/pia-foss/manual-connections"
+echo -e "\nOptional:\n  PF_TARGET_IP - LAN IP to DNAT the forwarded port to (e.g., 192.168.2.55)\n  PF_TARGET_PORT - target port for DNAT (default: same as PIA forwarded port)\n"
 exit 1
 fi
 
@@ -118,6 +119,35 @@ port=$(echo "$payload" | base64 -d | jq -r '.port')
 # 2 months is not enough for your setup, please open a ticket.
 expires_at=$(echo "$payload" | base64 -d | jq -r '.expires_at')
 
+# DNAT cleanup function: removes all DNAT and forward rules for PF_TARGET_IP
+remove_dnat() {
+    if [[ -z ${PF_TARGET_IP:-} ]]; then
+        return
+    fi
+
+    nft -a list chain ip nat PREROUTING 2>/dev/null | \
+      grep "dnat to $PF_TARGET_IP:" | \
+      sed 's/.*handle //' | \
+      while read -r handle; do
+        nft delete rule ip nat PREROUTING handle "$handle" 2>/dev/null || true
+      done
+
+    nft -a list chain inet pia_killswitch forward 2>/dev/null | \
+      grep "ip daddr $PF_TARGET_IP accept" | \
+      sed 's/.*handle //' | \
+      while read -r handle; do
+        nft delete rule inet pia_killswitch forward handle "$handle" 2>/dev/null || true
+      done
+
+    nft -a list chain inet pia_killswitch output 2>/dev/null | \
+      grep "ip daddr $PF_TARGET_IP accept" | \
+      sed 's/.*handle //' | \
+      while read -r handle; do
+        nft delete rule inet pia_killswitch output handle "$handle" 2>/dev/null || true
+      done
+}
+trap remove_dnat EXIT
+
 echo -ne "
 Signature ${green}$signature${nc}
 Payload   ${green}$payload${nc}
@@ -147,17 +177,31 @@ while true; do
       exit 1
     fi
     script_dir="$(cd "$(dirname "$0")" && pwd)"
-    echo "$port" > "$script_dir/forwarded_port"
     echo -e Forwarded port'\t'"${green}$port${nc}"
     echo -e Refreshed on'\t'"${green}$(date)${nc}"
     echo -e Expires on'\t'"${red}$(date --date="$expires_at")${nc}"
-    echo -e Port file'\t'"${green}$script_dir/forwarded_port${nc}"
 
     # Port is bound. Re-enable killswitch so traffic is locked to the VPN tunnel.
     # Subsequent keepalive curls go through the pia interface and are allowed.
     echo "Re-enabling kill switch..."
     nft delete table inet pia_killswitch 2>/dev/null || true
     nft -f /etc/nftables-pia.conf
+
+    # DNAT: forward incoming traffic on the PIA port to the target LAN IP
+    if [[ -n ${PF_TARGET_IP:-} ]]; then
+      target_port="${PF_TARGET_PORT:-$port}"
+      # Ensure ip nat table and PREROUTING chain exist (created once, harmless on repeat)
+      nft add table ip nat 2>/dev/null || true
+      nft add chain ip nat PREROUTING '{ type nat hook prerouting priority dstnat; policy accept; }' 2>/dev/null || true
+      # Remove old rules for this target (port may have changed on re-bind)
+      remove_dnat
+      echo "Adding DNAT rule: pia:$port → $PF_TARGET_IP:$target_port"
+      nft insert rule ip nat PREROUTING iifname pia tcp dport "$port" dnat to "$PF_TARGET_IP":"$target_port"
+      echo "Adding forward accept rule for $PF_TARGET_IP:$target_port"
+      nft insert rule inet pia_killswitch forward tcp dport "$target_port" ip daddr "$PF_TARGET_IP" accept
+      echo "Allowing outbound traffic to $PF_TARGET_IP"
+      nft insert rule inet pia_killswitch output ip daddr "$PF_TARGET_IP" accept
+    fi
 
     echo -e "\n${green}This script will need to remain active to use port forwarding, and will refresh every 15 minutes.${nc}\n"
 
