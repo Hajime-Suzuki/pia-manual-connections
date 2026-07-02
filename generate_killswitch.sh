@@ -13,25 +13,12 @@
 #   ./generate_killswitch.sh
 #
 # Environment variables:
-#   PIA_KILLSWITCH_DNS - DNS server for pre-connection resolution
-#                        (default: 192.168.2.254)
 #   PIA_KILLSWITCH_PATH - output path (default: /etc/nftables-pia.conf)
 #   PIA_KILLSWITCH_GATEWAY - set to "true" to add NAT masquerade for forwarded
 #                            traffic (needed when LXC routes other machines)
-#
-# DNS traffic is NOT explicitly allowed — it must go through the tunnel.
-#
-# Usage:
-#   ./generate_killswitch.sh
-#
-# Environment variables:
-#   PIA_KILLSWITCH_DNS - DNS server for pre-connection resolution
-#                        (default: 192.168.2.254)
-#   PIA_KILLSWITCH_PATH - output path (default: /etc/nftables-pia.conf)
 
 set -euo pipefail
 
-: "${PIA_KILLSWITCH_DNS:=192.168.2.254}"
 : "${PIA_KILLSWITCH_PATH:=/etc/nftables-pia.conf}"
 : "${PIA_KILLSWITCH_GATEWAY:=false}"
 
@@ -79,7 +66,6 @@ if [[ "$PIA_KILLSWITCH_GATEWAY" == "true" ]]; then
 fi
 
 echo "Killswitch generated at ${PIA_KILLSWITCH_PATH}"
-echo "DNS server configured: ${PIA_KILLSWITCH_DNS}"
 echo
 echo "To apply: sudo nft -f ${PIA_KILLSWITCH_PATH}"
 echo "To remove: sudo nft delete table inet pia_killswitch"
