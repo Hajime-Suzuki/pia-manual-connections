@@ -119,7 +119,7 @@ port=$(echo "$payload" | base64 -d | jq -r '.port')
 # 2 months is not enough for your setup, please open a ticket.
 expires_at=$(echo "$payload" | base64 -d | jq -r '.expires_at')
 
-# DNAT cleanup function: removes all DNAT and forward rules for PF_TARGET_IP
+# DNAT cleanup function: removes all DNAT and accept rules for PF_TARGET_IP
 remove_dnat() {
     if [[ -z ${PF_TARGET_IP:-} ]]; then
         return
@@ -144,6 +144,13 @@ remove_dnat() {
       sed 's/.*handle //' | \
       while read -r handle; do
         nft delete rule inet pia_killswitch output handle "$handle" 2>/dev/null || true
+      done
+
+    nft -a list chain inet pia_killswitch input 2>/dev/null | \
+      grep "tcp dport $PF_TARGET_PORT accept" | \
+      sed 's/.*handle //' | \
+      while read -r handle; do
+        nft delete rule inet pia_killswitch input handle "$handle" 2>/dev/null || true
       done
 }
 trap remove_dnat EXIT
@@ -201,6 +208,8 @@ while true; do
       nft insert rule inet pia_killswitch forward tcp dport "$target_port" ip daddr "$PF_TARGET_IP" accept
       echo "Allowing outbound traffic to $PF_TARGET_IP"
       nft insert rule inet pia_killswitch output ip daddr "$PF_TARGET_IP" accept
+      echo "Allowing inbound traffic on forwarded port in killswitch INPUT chain"
+      nft insert rule inet pia_killswitch input tcp dport "$target_port" accept
     fi
 
     echo -e "\n${green}This script will need to remain active to use port forwarding, and will refresh every 15 minutes.${nc}\n"
